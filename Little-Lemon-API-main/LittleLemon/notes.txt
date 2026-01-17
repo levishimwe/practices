@@ -1,0 +1,71 @@
+Superuser:
+username: admin
+password: admin123
+
+Manager:
+username: manager1
+password: test123
+
+Delivery Crew:
+username: delivery1
+password: test123
+
+Customer:
+username: customer1
+password: test123
+
+---
+
+FUNCTIONAL API ENDPOINTS:
+
+Authentication Endpoints:
+- POST auth/users/ - Customer registration
+- POST auth/token/login/ - Login (all users)
+- POST auth/token/logout/ - Logout
+
+Admin/Manager Endpoints:
+- POST/GET api/groups/manager/users/ - Add/view manager users (admin only)
+- DELETE api/groups/manager/users/<int:userId>/ - Remove manager (admin only)
+- POST/GET api/groups/delivery-crew/users/ - Add/view delivery crew (manager/admin)
+- DELETE api/groups/delivery-crew/users/<int:userId>/ - Remove delivery crew (manager/admin)
+
+Category Endpoints:
+- GET/POST api/categories/ - List categories / Create category (admin only)
+- GET/PUT/DELETE api/categories/<int:pk>/ - Retrieve/Update/Delete category
+
+Menu Items Endpoints:
+- GET/POST api/menu-items/ - List menu items with filtering / Create (admin only)
+- GET/PUT/PATCH/DELETE api/menu-items/<int:pk>/ - Retrieve/Update (manager for PATCH/featured) / Delete (admin)
+- Supports filtering: ?category=1
+- Supports search: ?search=Pizza
+- Supports pagination: ?page=1
+- Supports ordering: ?ordering=price or ?ordering=-price
+
+Cart Endpoints:
+- GET/POST api/cart/menu-items/ - View cart / Add items to cart
+- DELETE api/cart/menu-items/ - Clear entire cart
+
+Order Endpoints:
+- GET/POST api/cart/orders/ - View orders / Create order (places order from cart)
+- GET/PATCH api/orders/<int:pk>/ - View single order / Update (manager can assign delivery_crew, delivery crew can update status)
+
+Headers Required:
+- Authorization: Token <your_token>
+
+Test Instructions:
+1. Register as customer: POST auth/users/
+2. Login: POST auth/token/login/ (get token)
+3. Add categories as admin
+4. Add menu items as admin
+5. Browse categories/menu items as customer
+6. Add items to cart
+7. Place order from cart
+8. Assign delivery crew as manager
+9. Update order as delivered by delivery crew
+
+All permission levels working:
+- Anonymous: Can view categories and menu items
+- Authenticated Customer: Can register, login, browse menu, manage cart, view own orders
+- Manager: Can login, assign delivery crew, update item of day (featured), view all orders
+- Delivery Crew: Can view assigned orders and update delivery status
+- Admin/Superuser: Can do everything
