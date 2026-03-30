@@ -1,0 +1,27 @@
+{
+  "auth": {
+    "registered": "User registered successfully",
+    "loggedIn": "Login successful"
+  },
+  "user": {
+    "updated": "User profile updated",
+    "preferencesUpdated": "User preferences updated"
+  },
+  "event": {
+    "created": "Event created successfully",
+    "updated": "Event updated successfully",
+    "deleted": "Event deleted successfully",
+    "notFound": "Event not found"
+  },
+  "favorite": {
+    "added": "Event added to favorites",
+    "removed": "Event removed from favorites"
+  },
+  "errors": {
+    "serverError": "Internal server error",
+    "notFound": "Route not found",
+    "unauthorized": "Unauthorized access",
+    "invalidToken": "Invalid or expired token",
+    "forbidden": "Forbidden"
+  }
+}

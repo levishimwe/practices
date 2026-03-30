@@ -1,0 +1,27 @@
+{
+  "auth": {
+    "registered": "Usuario registrado correctamente",
+    "loggedIn": "Inicio de sesión exitoso"
+  },
+  "user": {
+    "updated": "Perfil actualizado",
+    "preferencesUpdated": "Preferencias actualizadas"
+  },
+  "event": {
+    "created": "Evento creado correctamente",
+    "updated": "Evento actualizado correctamente",
+    "deleted": "Evento eliminado correctamente",
+    "notFound": "Evento no encontrado"
+  },
+  "favorite": {
+    "added": "Evento agregado a favoritos",
+    "removed": "Evento eliminado de favoritos"
+  },
+  "errors": {
+    "serverError": "Error interno del servidor",
+    "notFound": "Ruta no encontrada",
+    "unauthorized": "Acceso no autorizado",
+    "invalidToken": "Token inválido o vencido",
+    "forbidden": "Prohibido"
+  }
+}
