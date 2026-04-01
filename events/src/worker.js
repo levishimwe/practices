@@ -1,13 +1,8 @@
 const { Worker } = require('bullmq');
-const IORedis = require('ioredis');
-const { redis } = require('./config/env');
-const eventRepo = require('./repositories/eventRepository');
+const { createRedisConnection } = require('./config/redis');
+const { Event, Category, User } = require('./models');
 
-const connection = new IORedis({
-  host: redis.host,
-  port: redis.port,
-  maxRetriesPerRequest: null
-});
+const connection = createRedisConnection();
 
 const worker = new Worker(
   'eventNotifications',
@@ -16,7 +11,12 @@ const worker = new Worker(
       return;
     }
 
-    const event = await eventRepo.getEventById(job.data.eventId);
+    const event = await Event.findByPk(job.data.eventId, {
+      include: [
+        { model: User, as: 'creator', attributes: ['id', 'name'] },
+        { model: Category, as: 'categories', through: { attributes: [] }, attributes: ['id', 'name'] }
+      ]
+    });
     if (!event) {
       return;
     }

@@ -1,11 +1,14 @@
 const { body } = require('express-validator');
-const categoryRepo = require('../repositories/categoryRepository');
+const { Category } = require('../models');
 
 const createCategoryValidators = [body('name').isString().isLength({ min: 2, max: 60 })];
 
 async function list(req, res, next) {
   try {
-    const categories = await categoryRepo.listCategories();
+    const categories = await Category.findAll({
+      attributes: ['id', 'name'],
+      order: [['name', 'ASC']]
+    });
     return res.json({ success: true, data: categories });
   } catch (error) {
     return next(error);
@@ -14,7 +17,7 @@ async function list(req, res, next) {
 
 async function create(req, res, next) {
   try {
-    const category = await categoryRepo.createCategory(req.body.name);
+    const category = await Category.create({ name: req.body.name });
     return res.status(201).json({ success: true, data: category });
   } catch (error) {
     return next(error);

@@ -1,5 +1,5 @@
 const { body } = require('express-validator');
-const userRepo = require('../repositories/userRepository');
+const { User, UserPreference } = require('../models');
 
 const updateProfileValidators = [
   body('latitude').optional().isFloat({ min: -90, max: 90 }),
@@ -11,13 +11,25 @@ const updatePreferencesValidators = [body('categoryIds').isArray()];
 
 async function me(req, res, next) {
   try {
-    const user = await userRepo.findById(req.user.userId);
-    const preferenceCategoryIds = await userRepo.getPreferenceCategoryIds(req.user.userId);
+    const user = await User.findByPk(req.user.userId);
+    const preferences = await UserPreference.findAll({
+      where: { user_id: req.user.userId },
+      attributes: ['category_id']
+    });
+    const preferenceCategoryIds = preferences.map((preference) => preference.category_id);
+    const userData = user.toJSON();
 
     return res.json({
       success: true,
       data: {
-        ...user,
+        id: userData.id,
+        name: userData.name,
+        email: userData.email,
+        latitude: userData.latitude,
+        longitude: userData.longitude,
+        preferred_language: userData.language,
+        created_at: userData.created_at,
+        updated_at: userData.updated_at,
         preferenceCategoryIds
       }
     });
@@ -28,11 +40,27 @@ async function me(req, res, next) {
 
 async function updateProfile(req, res, next) {
   try {
-    const user = await userRepo.updateProfile(req.user.userId, req.body);
+    const user = await User.findByPk(req.user.userId);
+    await user.update({
+      latitude: req.body.latitude ?? user.latitude,
+      longitude: req.body.longitude ?? user.longitude,
+      language: req.body.preferredLanguage ?? user.language
+    });
+
+    const data = user.toJSON();
     return res.json({
       success: true,
       message: req.t('user.updated'),
-      data: user
+      data: {
+        id: data.id,
+        name: data.name,
+        email: data.email,
+        latitude: data.latitude,
+        longitude: data.longitude,
+        preferred_language: data.language,
+        created_at: data.created_at,
+        updated_at: data.updated_at
+      }
     });
   } catch (error) {
     return next(error);
@@ -41,7 +69,17 @@ async function updateProfile(req, res, next) {
 
 async function updatePreferences(req, res, next) {
   try {
-    await userRepo.replacePreferences(req.user.userId, req.body.categoryIds);
+    await UserPreference.destroy({ where: { user_id: req.user.userId } });
+
+    if (Array.isArray(req.body.categoryIds) && req.body.categoryIds.length > 0) {
+      await UserPreference.bulkCreate(
+        req.body.categoryIds.map((categoryId) => ({
+          user_id: req.user.userId,
+          category_id: categoryId
+        }))
+      );
+    }
+
     return res.json({
       success: true,
       message: req.t('user.preferencesUpdated')

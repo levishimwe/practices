@@ -1,5 +1,5 @@
 const { body, param, query } = require('express-validator');
-const eventRepo = require('../repositories/eventRepository');
+const { Event, User, Category, Sequelize, Op } = require('../models');
 const notificationService = require('../services/notificationService');
 const ApiError = require('../utils/ApiError');
 
@@ -45,19 +45,48 @@ function parseCategoryIds(raw) {
     .filter(Number.isFinite);
 }
 
+function toEventResponse(event) {
+  const data = event.toJSON();
+  return {
+    ...data,
+    event_date: data.start_time,
+    eventDate: data.start_time,
+    creator_name: data.creator?.name,
+    categories: data.categories || []
+  };
+}
+
 async function create(req, res, next) {
   try {
-    const event = await eventRepo.createEvent({
-      ...req.body,
-      creatorId: req.user.userId
+    const event = await Event.create({
+      title: req.body.title,
+      description: req.body.description,
+      start_time: req.body.eventDate,
+      latitude: req.body.latitude,
+      longitude: req.body.longitude,
+      location_name: req.body.location_name,
+      end_time: req.body.end_time,
+      creator_id: req.user.userId
     });
 
-    await notificationService.enqueueEventNotification(event);
+    if (Array.isArray(req.body.categoryIds)) {
+      const categories = await Category.findAll({ where: { id: req.body.categoryIds } });
+      await event.setCategories(categories);
+    }
+
+    const hydrated = await Event.findByPk(event.id, {
+      include: [
+        { model: User, as: 'creator', attributes: ['id', 'name'] },
+        { model: Category, as: 'categories', through: { attributes: [] }, attributes: ['id', 'name'] }
+      ]
+    });
+
+    await notificationService.enqueueEventNotification(toEventResponse(hydrated));
 
     return res.status(201).json({
       success: true,
       message: req.t('event.created'),
-      data: event
+      data: toEventResponse(hydrated)
     });
   } catch (error) {
     return next(error);
@@ -67,8 +96,24 @@ async function create(req, res, next) {
 async function list(req, res, next) {
   try {
     const categoryIds = parseCategoryIds(req.query.categoryIds);
-    const events = await eventRepo.listEvents({ categoryIds });
-    return res.json({ success: true, data: events });
+
+    const include = [
+      { model: User, as: 'creator', attributes: ['id', 'name'] },
+      {
+        model: Category,
+        as: 'categories',
+        through: { attributes: [] },
+        attributes: ['id', 'name'],
+        ...(categoryIds.length ? { where: { id: categoryIds } } : {})
+      }
+    ];
+
+    const events = await Event.findAll({
+      include,
+      order: [['start_time', 'ASC']],
+      ...(categoryIds.length ? { distinct: true } : {})
+    });
+    return res.json({ success: true, data: events.map(toEventResponse) });
   } catch (error) {
     return next(error);
   }
@@ -76,11 +121,16 @@ async function list(req, res, next) {
 
 async function getById(req, res, next) {
   try {
-    const event = await eventRepo.getEventById(Number(req.params.id));
+    const event = await Event.findByPk(Number(req.params.id), {
+      include: [
+        { model: User, as: 'creator', attributes: ['id', 'name'] },
+        { model: Category, as: 'categories', through: { attributes: [] }, attributes: ['id', 'name'] }
+      ]
+    });
     if (!event) {
       throw new ApiError(404, req.t('event.notFound'));
     }
-    return res.json({ success: true, data: event });
+    return res.json({ success: true, data: toEventResponse(event) });
   } catch (error) {
     return next(error);
   }
@@ -89,7 +139,7 @@ async function getById(req, res, next) {
 async function update(req, res, next) {
   try {
     const eventId = Number(req.params.id);
-    const current = await eventRepo.getEventById(eventId);
+    const current = await Event.findByPk(eventId);
     if (!current) {
       throw new ApiError(404, req.t('event.notFound'));
     }
@@ -97,8 +147,29 @@ async function update(req, res, next) {
       throw new ApiError(403, req.t('errors.forbidden'));
     }
 
-    const updated = await eventRepo.updateEvent(eventId, req.body);
-    return res.json({ success: true, message: req.t('event.updated'), data: updated });
+    await current.update({
+      title: req.body.title ?? current.title,
+      description: req.body.description ?? current.description,
+      start_time: req.body.eventDate ?? current.start_time,
+      latitude: req.body.latitude ?? current.latitude,
+      longitude: req.body.longitude ?? current.longitude,
+      location_name: req.body.location_name ?? current.location_name,
+      end_time: req.body.end_time ?? current.end_time
+    });
+
+    if (Array.isArray(req.body.categoryIds)) {
+      const categories = await Category.findAll({ where: { id: req.body.categoryIds } });
+      await current.setCategories(categories);
+    }
+
+    const updated = await Event.findByPk(eventId, {
+      include: [
+        { model: User, as: 'creator', attributes: ['id', 'name'] },
+        { model: Category, as: 'categories', through: { attributes: [] }, attributes: ['id', 'name'] }
+      ]
+    });
+
+    return res.json({ success: true, message: req.t('event.updated'), data: toEventResponse(updated) });
   } catch (error) {
     return next(error);
   }
@@ -107,7 +178,7 @@ async function update(req, res, next) {
 async function remove(req, res, next) {
   try {
     const eventId = Number(req.params.id);
-    const current = await eventRepo.getEventById(eventId);
+    const current = await Event.findByPk(eventId);
     if (!current) {
       throw new ApiError(404, req.t('event.notFound'));
     }
@@ -115,7 +186,7 @@ async function remove(req, res, next) {
       throw new ApiError(403, req.t('errors.forbidden'));
     }
 
-    await eventRepo.deleteEvent(eventId);
+    await current.destroy();
     return res.json({ success: true, message: req.t('event.deleted') });
   } catch (error) {
     return next(error);
@@ -129,8 +200,29 @@ async function search(req, res, next) {
     const radiusKm = Number(req.query.radiusKm);
     const categoryIds = parseCategoryIds(req.query.categoryIds);
 
-    const events = await eventRepo.searchByRadius({ latitude, longitude, radiusKm, categoryIds });
-    return res.json({ success: true, data: events });
+    const distanceExpression = `ST_Distance_Sphere(point(\`Event\`.\`longitude\`, \`Event\`.\`latitude\`), point(${longitude}, ${latitude})) / 1000`;
+
+    const where = Sequelize.where(
+      Sequelize.literal(distanceExpression),
+      { [Op.lte]: radiusKm }
+    );
+
+    const include = [
+      {
+        model: Category,
+        as: 'categories',
+        through: { attributes: [] },
+        attributes: ['id', 'name'],
+        ...(categoryIds.length ? { where: { id: categoryIds } } : {})
+      }
+    ];
+
+    const events = await Event.findAll({
+      where,
+      include,
+      order: [[Sequelize.literal(distanceExpression), 'ASC'], ['start_time', 'ASC']]
+    });
+    return res.json({ success: true, data: events.map(toEventResponse) });
   } catch (error) {
     return next(error);
   }

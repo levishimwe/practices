@@ -5,10 +5,11 @@ CREATE TABLE IF NOT EXISTS users (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   name VARCHAR(100) NOT NULL,
   email VARCHAR(190) NOT NULL UNIQUE,
-  password_hash VARCHAR(255) NOT NULL,
+  password VARCHAR(255) NOT NULL,
   latitude DECIMAL(10, 7) NULL,
   longitude DECIMAL(10, 7) NULL,
-  preferred_language VARCHAR(10) NOT NULL DEFAULT 'en',
+  language VARCHAR(10) NOT NULL DEFAULT 'en',
+  role ENUM('user', 'admin') NOT NULL DEFAULT 'user',
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_users_location (latitude, longitude)
@@ -24,14 +25,16 @@ CREATE TABLE IF NOT EXISTS events (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   title VARCHAR(120) NOT NULL,
   description TEXT NULL,
-  event_date DATETIME NOT NULL,
+  location_name VARCHAR(255) NULL,
+  start_time DATETIME NOT NULL,
+  end_time DATETIME NULL,
   latitude DECIMAL(10, 7) NOT NULL,
   longitude DECIMAL(10, 7) NOT NULL,
   creator_id BIGINT NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_events_creator FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE CASCADE,
-  INDEX idx_events_date (event_date),
+  INDEX idx_events_date (start_time),
   INDEX idx_events_location (latitude, longitude)
 );
 
